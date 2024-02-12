@@ -1288,7 +1288,7 @@ int CmdHF14ASim(const char *Cmd) {
                   "hf 14a sim -t 10                -> ST25TA IKEA Rothult\n"
                   "hf 14a sim -t 11                -> Javacard (JCOP)\n"
                   "hf 14a sim -t 12                -> 4K Seos card\n"
-                  "hf 14a sim -t 13                -> MIFARE Ultralight C\n"
+                  "hf 14a sim -t 13 --data 01020304 -> MagSafe case\n"
                   "hf 14a sim -t 14                -> MIFARE Ultralight AES"
                  );
 
@@ -1302,6 +1302,7 @@ int CmdHF14ASim(const char *Cmd) {
         arg_lit0("v", "verbose", "verbose output"),
         arg_lit0(NULL, "z1", "ULC/ULAES Auth - all zero handshake part 1"),
         arg_lit0(NULL, "z2", "ULC/ULAES Auth - all zero handshake part 2"),
+        arg_str0("d", "data", "<hex>", "4-byte MagSafe payload"),
         arg_param_end
     };
     CLIExecWithReturn(ctx, Cmd, argtable, false);
@@ -1311,6 +1312,10 @@ int CmdHF14ASim(const char *Cmd) {
     int uid_len = 0;
     uint8_t uid[10] = {0};
     CLIGetHexWithReturn(ctx, 2, uid, &uid_len);
+
+    int magsafe_data_len = 0;
+    uint8_t magsafe_data[4] = {0};
+    CLIGetHexWithReturn(ctx, 7, magsafe_data, &magsafe_data_len);
 
     uint16_t flags = 0;
     bool useUIDfromEML = true;
@@ -1357,6 +1362,7 @@ int CmdHF14ASim(const char *Cmd) {
         uint8_t rats[20];
         bool ulauth_z1;
         bool ulauth_z2;
+        uint8_t magsafe_data[4];
     } PACKED payload;
 
     payload.tagtype = tagtype;
@@ -1365,6 +1371,7 @@ int CmdHF14ASim(const char *Cmd) {
     payload.ulauth_z1 = ulauth_z1;
     payload.ulauth_z2 = ulauth_z2;
     memcpy(payload.uid, uid, uid_len);
+    memcpy(payload.magsafe_data, magsafe_data, magsafe_data_len);
 
     clearCommandBuffer();
     SendCommandNG(CMD_HF_ISO14443A_SIMULATE, (uint8_t *)&payload, sizeof(payload));

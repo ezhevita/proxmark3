@@ -1221,7 +1221,7 @@ static void Simulate_read_ulaes_key0(uint8_t *ulaes_key0) {
 
 bool SimulateIso14443aInit(uint8_t tagType, uint16_t flags, uint8_t *data,
                            uint8_t *ats, size_t ats_len, tag_response_info_t **responses,
-                           uint32_t *cuid, uint8_t *pages, uint8_t *ulc_key) {
+                           uint32_t *cuid, uint8_t *pages, uint8_t *ulc_key, uint8_t *magsafeData) {
     uint8_t sak = 0;
     // The first response contains the ATQA (note: bytes are transmitted in reverse order).
     static uint8_t rATQA[2] = { 0x00 };
@@ -1254,6 +1254,12 @@ bool SimulateIso14443aInit(uint8_t tagType, uint16_t flags, uint8_t *data,
     static uint8_t rPPS[3] = { 0xD0 };
 
     static uint8_t rPACK[4] = { 0x00, 0x00, 0x00, 0x00 };
+
+    // MagSafe responses
+    static uint8_t rMagSafe1[5] = { 0x02, 0x90, 0x00, 0xF1, 0x09 };
+    static uint8_t rMagSafe2[5] = { 0x03, 0x90, 0x00, 0x2D, 0x53 };
+    static uint8_t rMagSafe3[20] = { 0x02, 0x00, 0x1D, 0x20, 0x01, 0x00, 0x00, 0xFF, 0x04, 0x06, 0xE1, 0x04, 0x03, 0x00, 0x00, 0x00, 0x90, 0x00, 0xA9, 0x9E };
+    static uint8_t rMagSafe4[19] = { 0x03, 0x05, 0x06, 0xE1, 0x05, 0x00, 0x80, 0x82, 0x83, 0x0F, 0x04, 0x00, 0x00, 0x00, 0x00, 0x90, 0x00, 0x00, 0x00 };
 
     switch (tagType) {
         case 1: { // MIFARE Classic 1k
@@ -1371,28 +1377,20 @@ bool SimulateIso14443aInit(uint8_t tagType, uint16_t flags, uint8_t *data,
             sak = 0x20;
             break;
         }
-        case 13: { // MIFARE Ultralight C
+        case 13: { // MagSafe
+            rATQA[0] = 0x04;
+            rATQA[1] = 0x03;
+            sak = 0x20;
 
-            rATQA[0] = 0x44;
-            sak = 0x00;
+            rMagSafe4[11] = magsafeData[0];
+            rMagSafe4[12] = magsafeData[1];
+            rMagSafe4[13] = magsafeData[2];
+            rMagSafe4[14] = magsafeData[3];
 
-            // some first pages of UL/NTAG dump is special data
-            mfu_dump_t *mfu_header = (mfu_dump_t *) BigBuf_get_EM_addr();
-            *pages = MAX(mfu_header->pages, 47);
+            AddCrc14A(rMagSafe4, sizeof(rMagSafe4) - 2);
 
-            Simulate_read_ulc_key(ulc_key);
-
-            /*
-            Dbprintf("UL-C Pages....... %u ( 47 )", *pages);
-            DbpString("UL-C 3des key... ");
-            Dbhexdump(16, ulc_key, false);
-            */
-
-            if (IS_FLAG_UID_IN_DATA(flags, 7)) {
-                DbpString("UL-C UID........ ");
-                Dbhexdump(7, data, false);
-            }
-            break;
+            memcpy(rRATS, "\x06\x77\x77\x71\x02\x80\xBE\x6A", 8);
+            rRATS_len = 8;
         }
         case 14: { // MIFARE Ultralight AES
 
@@ -1574,6 +1572,10 @@ bool SimulateIso14443aInit(uint8_t tagType, uint16_t flags, uint8_t *data,
         { .response = rSIGN,      .response_n = sizeof(rSIGN)     },  // EV1/NTAG READ_SIG response
         { .response = rPPS,       .response_n = sizeof(rPPS)      },  // PPS response
         { .response = rPACK,      .response_n = sizeof(rPACK)     }   // PACK response
+        { .response = rMagSafe1,  .response_n = sizeof(rMagSafe1) },
+        { .response = rMagSafe2,  .response_n = sizeof(rMagSafe2) },
+        { .response = rMagSafe3,  .response_n = sizeof(rMagSafe3) },
+        { .response = rMagSafe4,  .response_n = sizeof(rMagSafe4) },
     };
 
     // since rats len is variable now.
@@ -1581,16 +1583,16 @@ bool SimulateIso14443aInit(uint8_t tagType, uint16_t flags, uint8_t *data,
 
     // "precompiled" responses.
     // These exist for speed reasons.  There are no time in the anti collision phase to calculate responses.
-    // There are 12 predefined responses with a total of 84 bytes data to transmit.
+    // There are 16 predefined responses with a total of 133 bytes data to transmit.
     //
     // Coded responses need one byte per bit to transfer (data, parity, start, stop, correction)
-    // 85 * 8 data bits, 85 * 1 parity bits, 12 start bits, 12 stop bits, 12 correction bits
-    // 85 * 8 + 85 + 12 + 12 + 12 == 801
+    // 134 * 8 data bits, 134 * 1 parity bits, 16 start bits, 16 stop bits, 16 correction bits
+    // 134 * 8 + 134 + 16 + 16 + 16 == 1 254
     // CHG:
-    // 85 bytes normally (rats = 8 bytes)
-    // 77 bytes + ratslen,
+    // 134 bytes normally (rats = 8 bytes)
+    // 126 bytes + ratslen,
 
-#define ALLOCATED_TAG_MODULATION_BUFFER_SIZE (  ((77 + rATS_len) * 8) + 77 + rATS_len + 12 + 12 + 12)
+#define ALLOCATED_TAG_MODULATION_BUFFER_SIZE (  ((126 + rRATS_len) * 8) + 126 + rRATS_len + 16 + 16 + 16)
 
     uint8_t *free_buffer = BigBuf_calloc(ALLOCATED_TAG_MODULATION_BUFFER_SIZE);
     // modulation buffer pointer and current buffer free space size
@@ -1617,7 +1619,7 @@ bool SimulateIso14443aInit(uint8_t tagType, uint16_t flags, uint8_t *data,
 // 'hf 14a sim'
 //-----------------------------------------------------------------------------
 void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *useruid, uint8_t exitAfterNReads,
-                          uint8_t *ats, size_t ats_len, bool ulauth_z1, bool ulauth_z2) {
+                          uint8_t *ats, size_t ats_len, bool ulauth_z1, bool ulauth_z2, uint8_t *magsafeData) {
 
 #define ATTACK_KEY_COUNT 16
 #define ULC_TAG_NONCE       "\x01\x02\x03\x04\x05\x06\x07\x08"
@@ -1675,7 +1677,7 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *useruid, uin
 
     if (SimulateIso14443aInit(tagType, flags, useruid, ats, ats_len
                               , &responses, &cuid, &pages
-                              , ulc_key) == false) {
+                              , ulc_key, magsafeData) == false) {
         BigBuf_free_keep_EM();
         reply_ng(CMD_HF_MIFARE_SIMULATE, PM3_EINIT, NULL, 0);
         return;
@@ -1836,6 +1838,14 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *useruid, uin
             }
         } else if (receivedCmd[0] == ISO14443A_CMD_WUPA && len == 1) { // Received a WAKEUP
             p_response = &responses[RESP_INDEX_ATQA];
+        } else if (receivedCmd[0] == MAGSAFE_CMD_WUPA_1 && len == 1) { // Received a magsafe WAKEUP
+            p_response = &responses[RESP_INDEX_ATQA];
+        } else if (receivedCmd[0] == MAGSAFE_CMD_WUPA_2 && len == 1) { // Received a magsafe WAKEUP
+            p_response = &responses[RESP_INDEX_ATQA];
+        } else if (receivedCmd[0] == MAGSAFE_CMD_WUPA_3 && len == 1) { // Received a magsafe WAKEUP
+            p_response = &responses[RESP_INDEX_ATQA];
+        } else if (receivedCmd[0] == MAGSAFE_CMD_WUPA_4 && len == 1) { // Received a magsafe WAKEUP
+            p_response = &responses[RESP_INDEX_ATQA];
         } else if (receivedCmd[1] == 0x20 && receivedCmd[0] == ISO14443A_CMD_ANTICOLL_OR_SELECT && len == 2) {    // Received request for UID (cascade 1)
             p_response = &responses[RESP_INDEX_UIDC1];
         } else if (receivedCmd[1] == 0x20 && receivedCmd[0] == ISO14443A_CMD_ANTICOLL_OR_SELECT_2 && len == 2) {  // Received request for UID (cascade 2)
@@ -1848,6 +1858,16 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *useruid, uin
             p_response = &responses[RESP_INDEX_SAKC2];
         } else if (receivedCmd[1] == 0x70 && receivedCmd[0] == ISO14443A_CMD_ANTICOLL_OR_SELECT_3 && len == 9) {  // Received a SELECT (cascade 3)
             p_response = &responses[RESP_INDEX_SAKC3];
+/// MAGSAFE BLOCK
+        } else if (receivedCmd[0] == 0x02 && receivedCmd[1] == 0x00 && receivedCmd[2] == 0xA4 && len == 15) {
+            p_response = &responses[RESP_INDEX_MAGSAFE1];
+        } else if (receivedCmd[0] == 0x03 && receivedCmd[1] == 0x00 && receivedCmd[2] == 0xA4 && len == 10) {
+            p_response = &responses[RESP_INDEX_MAGSAFE2];
+        } else if (receivedCmd[0] == 0x02 && receivedCmd[1] == 0x00 && receivedCmd[2] == 0xB0 && len == 8) {
+            p_response = &responses[RESP_INDEX_MAGSAFE3];
+        } else if (receivedCmd[0] == 0x03 && receivedCmd[1] == 0x00 && receivedCmd[2] == 0xB0 && len == 8) {
+            p_response = &responses[RESP_INDEX_MAGSAFE4];
+/// MAGSAFE BLOCK        
         } else if (receivedCmd[0] == ISO14443A_CMD_PPS) {
             p_response = &responses[RESP_INDEX_PPS];
         } else if (receivedCmd[0] == ISO14443A_CMD_READBLOCK && len == 4) {    // Received a (plain) READ
