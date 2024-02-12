@@ -1571,7 +1571,7 @@ bool SimulateIso14443aInit(uint8_t tagType, uint16_t flags, uint8_t *data,
         { .response = rVERSION,   .response_n = sizeof(rVERSION)  },  // EV1/NTAG GET_VERSION response
         { .response = rSIGN,      .response_n = sizeof(rSIGN)     },  // EV1/NTAG READ_SIG response
         { .response = rPPS,       .response_n = sizeof(rPPS)      },  // PPS response
-        { .response = rPACK,      .response_n = sizeof(rPACK)     }   // PACK response
+        { .response = rPACK,      .response_n = sizeof(rPACK)     },  // PACK response
         { .response = rMagSafe1,  .response_n = sizeof(rMagSafe1) },
         { .response = rMagSafe2,  .response_n = sizeof(rMagSafe2) },
         { .response = rMagSafe3,  .response_n = sizeof(rMagSafe3) },
