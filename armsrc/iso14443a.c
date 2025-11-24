@@ -1727,7 +1727,7 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *useruid, uin
     // compatible write block number
     uint8_t wrblock = 0;
 
-    //bool odd_reply = true;
+    bool odd_reply = true;
 
     clear_trace();
     set_tracing(true);
@@ -1832,8 +1832,19 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *useruid, uin
             p_response = NULL;
 
         } else if (receivedCmd[0] == ISO14443A_CMD_REQA && len == 1) { // Received a REQUEST, but in HALTED, skip
-            p_response = &responses[RESP_INDEX_ATQA];
+            odd_reply = !odd_reply;
+            if (odd_reply) {
+                p_response = &responses[RESP_INDEX_ATQA];
+            }
         } else if (receivedCmd[0] == ISO14443A_CMD_WUPA && len == 1) { // Received a WAKEUP
+            p_response = &responses[RESP_INDEX_ATQA];
+        } else if (receivedCmd[0] == MAGSAFE_CMD_WUPA_1 && len == 1) { // Received a magsafe WAKEUP
+            p_response = &responses[RESP_INDEX_ATQA];
+        } else if (receivedCmd[0] == MAGSAFE_CMD_WUPA_2 && len == 1) { // Received a magsafe WAKEUP
+            p_response = &responses[RESP_INDEX_ATQA];
+        } else if (receivedCmd[0] == MAGSAFE_CMD_WUPA_3 && len == 1) { // Received a magsafe WAKEUP
+            p_response = &responses[RESP_INDEX_ATQA];
+        } else if (receivedCmd[0] == MAGSAFE_CMD_WUPA_4 && len == 1) { // Received a magsafe WAKEUP
             p_response = &responses[RESP_INDEX_ATQA];
         } else if (receivedCmd[1] == 0x20 && receivedCmd[0] == ISO14443A_CMD_ANTICOLL_OR_SELECT && len == 2) {    // Received request for UID (cascade 1)
             p_response = &responses[RESP_INDEX_UIDC1];
