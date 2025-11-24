@@ -1389,8 +1389,8 @@ bool SimulateIso14443aInit(uint8_t tagType, uint16_t flags, uint8_t *data,
 
             AddCrc14A(rMagSafe4, sizeof(rMagSafe4) - 2);
 
-            memcpy(rRATS, "\x06\x77\x77\x71\x02\x80\xBE\x6A", 8);
-            rRATS_len = 8;
+            memcpy(rATS, "\x06\x77\x77\x71\x02\x80\xBE\x6A", 8);
+            rATS_len = 8;
         }
         case 14: { // MIFARE Ultralight AES
 
@@ -1592,7 +1592,7 @@ bool SimulateIso14443aInit(uint8_t tagType, uint16_t flags, uint8_t *data,
     // 134 bytes normally (rats = 8 bytes)
     // 126 bytes + ratslen,
 
-#define ALLOCATED_TAG_MODULATION_BUFFER_SIZE (  ((126 + rRATS_len) * 8) + 126 + rRATS_len + 16 + 16 + 16)
+#define ALLOCATED_TAG_MODULATION_BUFFER_SIZE (  ((126 + rATS_len) * 8) + 126 + rATS_len + 16 + 16 + 16)
 
     uint8_t *free_buffer = BigBuf_calloc(ALLOCATED_TAG_MODULATION_BUFFER_SIZE);
     // modulation buffer pointer and current buffer free space size
@@ -1727,7 +1727,7 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *useruid, uin
     // compatible write block number
     uint8_t wrblock = 0;
 
-    bool odd_reply = true;
+    //bool odd_reply = true;
 
     clear_trace();
     set_tracing(true);
@@ -4459,7 +4459,7 @@ void SimulateIso14443aTagAID(uint8_t tagType, uint16_t flags, uint8_t *uid,
         .modulation_n = 0
     };
 
-    if (SimulateIso14443aInit(tagType, flags, uid, ats, ats_len, &responses, &cuid, &pages, NULL) == false) {
+    if (SimulateIso14443aInit(tagType, flags, uid, ats, ats_len, &responses, &cuid, &pages, NULL, NULL) == false) {
         BigBuf_free_keep_EM();
         reply_ng(CMD_HF_MIFARE_SIMULATE, PM3_EINIT, NULL, 0);
         return;
